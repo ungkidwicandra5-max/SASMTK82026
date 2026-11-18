@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="id" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="google" content="notranslate">
+    <title>Ujian CBT Sumatif Akhir Semester - Matematika</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; user-select: none; -webkit-user-select: none; }
+        
+        /* Prevent selection and context menu */
+        .no-select { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
+        
+        /* Floating Camera Container */
+        #floating-cam {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 120px;
+            height: 160px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            z-index: 100;
+            cursor: grab;
+            border: 2px solid #3b82f6;
+            touch-action: none; /* Crucial for touch drag */
+        }
+        #floating-cam:active { cursor: grabbing; }
+        #floating-cam video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+
+        /* Exam Layout Constraints */
+        #exam-screen { display: none; flex-direction: column; height: 100vh; overflow: hidden; }
+        #exam-content { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+        
+        /* Sticky Footer */
+        #sticky-footer {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 40;
+        }
+
+        /* Custom Scrollbar for better UI */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        /* Radio Button Styling */
+        input[type="radio"] { transform: scale(1.3); margin-right: 10px; accent-color: #2563eb; }
+        .option-label { display: flex; align-items: flex-start; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .option-label:hover { background-color: #eff6ff; }
+        
+        /* Screen Hider on Cheat */
+        #cheat-overlay {
+            display: none; position: fixed; inset: 0; background: #ef4444; z-index: 9999;
+            flex-direction: column; justify-content: center; align-items: center; color: white;
+            text-align: center; padding: 20px;
+        }
+    </style>
+</head>
+<body class="no-select text-gray-800" oncontextmenu="return false;">
+
+    <!-- 1. LOGIN SCREEN -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold text-blue-700">CBT Sumatif</h1>
+                <p class="text-gray-500">Matematika - Kelas 8</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="input-name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan nama Anda..." autocomplete="off">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
+                    <select id="input-class" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="">-- Pilih Kelas --</option>
+                        <option value="8 D">8 D</option>
+                        <option value="8 E">8 E</option>
+                        <option value="8 F">8 F</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Token Ujian</label>
+                    <input type="password" id="input-token" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan token (MTK2026)">
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition mt-4">
+                    Masuk
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. PREP SCREEN (Device Check) -->
+    <div id="prep-screen" class="hidden min-h-screen items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
+            <h2 class="text-xl font-bold mb-4">Persiapan Ujian</h2>
+            <p class="text-sm text-gray-600 mb-4">Aplikasi membutuhkan izin akses Kamera untuk pengawasan. Harap izinkan saat diminta.</p>
+            
+            <div class="bg-gray-200 w-full h-48 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                <video id="prep-video" autoplay muted playsinline class="hidden w-full h-full object-cover"></video>
+                <span id="cam-status" class="text-gray-500">Memeriksa kamera...</span>
+            </div>
+            
+            <ul class="text-xs text-left text-gray-500 mb-6 list-disc pl-5 space-y-1">
+                <li>Pastikan Anda berada di tempat terang.</li>
+                <li>Ujian akan menggunakan layar penuh (Fullscreen).</li>
+                <li>Dilarang keluar aplikasi/pindah tab (Maks 3 kali peringatan).</li>
+            </ul>
+
+            <button id="btn-start" onclick="startExam()" disabled class="w-full bg-gray-400 text-white font-semibold py-3 rounded-lg transition">
+                Minta Izin Kamera
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. EXAM SCREEN -->
+    <div id="exam-screen">
+        <!-- Floating Camera -->
+        <div id="floating-cam">
+            <video id="exam-video" autoplay muted playsinline></video>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-blue-700 text-white p-4 shadow-md flex justify-between items-center z-40">
+            <div>
+                <h2 class="font-bold text-lg md:text-xl truncate max-w-[200px] md:max-w-md" id="display-name">Nama Siswa</h2>
+                <p class="text-xs md:text-sm text-blue-200">Matematika - <span id="display-class"></span></p>
+            </div>
+            <div class="flex items-center gap-3 md:gap-4">
+                <div class="text-center border border-blue-400 bg-blue-800 px-3 py-1 rounded-md">
+                    <p class="text-[10px] text-blue-200">Sisa Waktu</p>
+                    <p class="font-bold font-mono text-sm md:text-base" id="timer-display">90:00</p>
+                </div>
+                <button onclick="toggleQuestionModal()" class="p-2 bg-blue-600 hover:bg-blue-500 rounded-md border border-blue-400 transition flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    <span class="hidden md:inline text-sm font-semibold">Daftar Soal</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main id="exam-content" class="p-4 md:p-6 lg:max-w-4xl lg:mx-auto w-full relative">
+            <div class="bg-white rounded-xl shadow-sm border p-5 md:p-8 min-h-[300px]">
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h3 class="font-bold text-lg text-gray-800">Soal No. <span id="q-number">1</span></h3>
+                    <div class="text-sm font-semibold text-red-500 bg-red-50 px-2 py-1 rounded" id="warning-display">
+                        Peringatan: 0/3
+                    </div>
+                </div>
+                <div id="q-text" class="text-gray-800 text-base md:text-lg mb-6 leading-relaxed">
+                    <!-- Question text injected here -->
+                </div>
+                <div id="q-options" class="space-y-3">
+                    <!-- Options injected here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Sticky Footer -->
+        <footer id="sticky-footer" class="p-4 flex justify-between items-center lg:max-w-4xl lg:mx-auto w-full">
+            <button onclick="prevQuestion()" id="btn-prev" class="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition disabled:opacity-50">
+                Sebelumnya
+            </button>
+            <button onclick="nextQuestion()" id="btn-next" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+                Selanjutnya
+            </button>
+            <button onclick="confirmSubmit()" id="btn-submit" class="hidden px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition">
+                Selesai Ujian
+            </button>
+        </footer>
+    </div>
+
+    <!-- Modals & Overlays -->
+    
+    <!-- Question List Modal -->
+    <div id="q-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-4 bg-blue-600 text-white flex justify-between items-center">
+                <h3 class="font-bold">Daftar Soal</h3>
+                <button onclick="toggleQuestionModal()" class="text-white hover:text-gray-200 font-bold text-xl">&times;</button>
+            </div>
+            <div class="p-4 flex-1 overflow-y-auto">
+                <div class="flex gap-4 mb-4 text-xs font-semibold justify-center border-b pb-4">
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 block border border-gray-300 bg-white"></span> Belum</div>
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 block bg-blue-500"></span> Aktif</div>
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 block bg-green-500"></span> Dijawab</div>
+                </div>
+                <div id="q-grid" class="grid grid-cols-5 sm:grid-cols-8 gap-2">
+                    <!-- Grid injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Confirmation Modal -->
+    <div id="submit-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-xl p-6 text-center">
+            <h3 class="text-xl font-bold mb-2">Selesai Ujian?</h3>
+            <p class="text-gray-600 text-sm mb-4">Pastikan semua soal telah dijawab sebelum mengumpulkan.</p>
+            <div class="bg-gray-100 rounded-lg p-3 mb-6 text-left text-sm">
+                <p>Terjawab: <span id="info-answered" class="font-bold text-green-600">0</span></p>
+                <p>Belum Dijawab: <span id="info-unanswered" class="font-bold text-red-600">0</span></p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeSubmitModal()" class="flex-1 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg">Batal</button>
+                <button onclick="processSubmit()" class="flex-1 py-2 bg-green-600 text-white font-semibold rounded-lg">Ya, Kumpulkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cheat Overlay -->
+    <div id="cheat-overlay">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h1 class="text-3xl font-bold mb-2">PERINGATAN!</h1>
+        <p class="text-lg max-w-md">Anda terdeteksi keluar dari halaman ujian atau membuka tab lain!</p>
+        <p class="mt-4 font-semibold text-xl">Silakan kembali ke ujian untuk mematikan alarm.</p>
+        <p class="mt-2 text-sm">Peringatan: <span id="overlay-warning-count"></span> / 3</p>
+    </div>
+
+    <!-- 4. RESULT SCREEN -->
+    <div id="result-screen" class="hidden min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
+            <div id="result-loading">
+                <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <h2 class="text-xl font-bold text-gray-700">Mengirim data...</h2>
+                <p class="text-sm text-gray-500 mt-2">Mohon tunggu sebentar.</p>
+            </div>
+            <div id="result-success" class="hidden">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Ujian Selesai!</h2>
+                <p class="text-gray-600 mb-4" id="final-status">Data berhasil terkirim.</p>
+                <div class="bg-gray-50 p-4 rounded-lg text-left">
+                    <p class="text-sm text-gray-600 mb-1">Nama: <strong id="res-name"></strong></p>
+                    <p class="text-sm text-gray-600 mb-1">Kelas: <strong id="res-class"></strong></p>
+                    <p class="text-sm text-gray-600 mb-1">Status: <strong id="res-cond"></strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN SCRIPT -->
+    <script>
+        // === CONFIGURATION ===
+        const VALID_TOKEN = "MTK2026"; 
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx5aD5YoEJw9TjLX1ph4-MHKkUc9sFL49WsSesxvJpjZwkzPpclaqEn50_Xa905jyBu/exec"; // Ganti URL ini nanti
+        const MAX_WARNINGS = 3;
+        const EXAM_DURATION = 90 * 60; // 90 menit dalam detik
+        
+        // Data Soal (40 Soal Matematika Kelas 8 sesuai prompt)
+        const questionsData = [
+            { text: "Sederhanakan bentuk aljabar 5x + 3x - 4.", options: ["8x - 4", "8x + 4", "2x - 4", "8x"], key: 0 },
+            { text: "Hasil dari 3a + 2b - a + 5b adalah ....", options: ["2a + 7b", "4a + 7b", "2a + 3b", "3a + 7b"], key: 0 },
+            { text: "Jika x = 4, nilai dari 2x² - 3x + 1 adalah ....", options: ["17", "19", "21", "25"], key: 1 },
+            { text: "Hasil perkalian 4p(2p - 3) adalah ....", options: ["8p² - 12p", "8p² - 3", "6p² - 12p", "8p - 12"], key: 0 },
+            { text: "Bentuk sederhana dari 7m - 2n + 3m + 5n adalah ....", options: ["10m + 3n", "10m - 7n", "4m + 3n", "10m + 7n"], key: 0 },
+            { text: "Penyelesaian dari x + 7 = 15 adalah ....", options: ["6", "7", "8", "9"], key: 2 },
+            { text: "Nilai x yang memenuhi 3x = 27 adalah ....", options: ["6", "8", "9", "12"], key: 2 },
+            { text: "Jika 2x - 5 = 13, nilai x adalah ....", options: ["4", "8", "9", "10"], key: 2 },
+            { text: "Penyelesaian dari 5(x - 2) = 20 adalah ....", options: ["4", "5", "6", "8"], key: 2 },
+            { text: "Umur Rani 4 tahun lebih tua daripada Dita. Jika umur Rani 16 tahun, persamaan untuk menentukan umur Dita (d) adalah ....", options: ["d + 4 = 16", "d - 4 = 16", "4d = 16", "d + 16 = 4"], key: 0 },
+            { text: "Pasangan (x, y) yang memenuhi x + y = 9 dan x - y = 3 adalah ....", options: ["(3, 6)", "(6, 3)", "(5, 4)", "(4, 5)"], key: 1 },
+            { text: "Penyelesaian dari 2x + y = 11 dan x + y = 7 adalah ....", options: ["(2, 5)", "(3, 4)", "(4, 3)", "(5, 2)"], key: 1 },
+            { text: "Jika x + 2y = 10 dan x = 4, nilai y adalah ....", options: ["2", "3", "4", "5"], key: 1 },
+            { text: "Pasangan yang memenuhi 3x + y = 13 dan x + y = 7 adalah ....", options: ["(2, 5)", "(3, 4)", "(4, 3)", "(5, 2)"], key: 1 },
+            { text: "Diketahui 2x + 3y = 13 dan x + y = 5. Nilai x dan y berturut-turut adalah ....", options: ["2 dan 3", "3 dan 2", "4 dan 1", "1 dan 4"], key: 0 },
+            { text: "Harga 2 buku dan 1 pensil adalah Rp11.000, sedangkan harga 1 buku dan 1 pensil Rp7.000. Harga sebuah buku adalah ....", options: ["Rp3.000", "Rp4.000", "Rp5.000", "Rp6.000"], key: 1 },
+            { text: "Jumlah dua bilangan adalah 20 dan selisihnya 4. Bilangan yang lebih besar adalah ....", options: ["8", "10", "12", "14"], key: 2 },
+            { text: "Di sebuah toko, 2 roti dan 3 susu berharga Rp21.000. Sementara 1 roti dan 2 susu berharga Rp13.000. Harga satu roti adalah ....", options: ["Rp3.000", "Rp4.000", "Rp5.000", "Rp6.000"], key: 1 },
+            { text: "Harga 3 tiket dewasa dan 2 tiket anak-anak adalah Rp64.000. Harga 2 tiket dewasa dan 2 tiket anak-anak adalah Rp48.000. Harga satu tiket dewasa adalah ....", options: ["Rp8.000", "Rp12.000", "Rp16.000", "Rp20.000"], key: 2 },
+            { text: "Di tempat parkir terdapat 20 kendaraan berupa mobil dan sepeda motor. Jumlah seluruh rodanya 54. Banyak mobil adalah ....", options: ["5", "7", "9", "11"], key: 1 },
+            { text: "Nilai dari 2⁴ adalah ....", options: ["8", "12", "16", "32"], key: 2 },
+            { text: "Bentuk perkalian berulang dari 3⁵ adalah ....", options: ["3 × 5", "3 × 3 × 3 × 3 × 3", "5 × 5 × 5", "3 + 3 + 3 + 3 + 3"], key: 1 },
+            { text: "Hasil dari 5² × 5³ adalah ....", options: ["5⁵", "5⁶", "5¹", "25⁶"], key: 0 },
+            { text: "Nilai dari 2⁶ : 2² adalah ....", options: ["2²", "2³", "2⁴", "2⁸"], key: 2 },
+            { text: "Hasil dari (3²)³ adalah ....", options: ["3⁵", "3⁶", "3⁸", "3⁹"], key: 1 },
+            { text: "Nilai dari 10⁰ + 2³ adalah ....", options: ["7", "8", "9", "10"], key: 2 },
+            { text: "Bentuk sederhana dari 4⁻² adalah ....", options: ["-16", "-1/16", "1/8", "1/16"], key: 3 },
+            { text: "Hasil dari 2³ × 4² adalah ....", options: ["64", "96", "128", "256"], key: 2 },
+            { text: "Bilangan 0,0001 dalam bentuk perpangkatan 10 adalah ....", options: ["10⁻²", "10⁻³", "10⁻⁴", "10⁴"], key: 2 },
+            { text: "Jika 2ˣ = 32, nilai x adalah ....", options: ["3", "4", "5", "6"], key: 2 },
+            { text: "Bentuk akar dari √49 adalah ....", options: ["6", "7", "8", "9"], key: 1 },
+            { text: "Nilai dari √144 adalah ....", options: ["10", "11", "12", "14"], key: 2 },
+            { text: "Hasil penyederhanaan √50 adalah ....", options: ["2√5", "5√2", "10√5", "25√2"], key: 1 },
+            { text: "Hasil dari √12 + √27 adalah ....", options: ["3√3", "4√3", "5√3", "6√3"], key: 2 },
+            { text: "Hasil dari 3√2 × 2√2 adalah ....", options: ["6√2", "10", "12", "12√2"], key: 2 },
+            { text: "Bentuk sederhana dari √75 - √12 adalah ....", options: ["√3", "2√3", "3√3", "4√3"], key: 1 },
+            { text: "Hasil dari √8 × √18 adalah ....", options: ["10", "12", "14", "16"], key: 1 },
+            { text: "Bentuk rasional dari 3/√3 adalah ....", options: ["√3", "3√3", "√3/3", "3"], key: 0 },
+            { text: "Nilai dari (√5)² + √16 adalah ....", options: ["7", "8", "9", "10"], key: 2 },
+            { text: "Di antara bilangan berikut, yang merupakan bilangan irasional adalah ....", options: ["√9", "√16", "√20", "√25"], key: 2 }
+        ];
+
+        // === STATE VARIABLES ===
+        let studentInfo = { name: "", class: "" };
+        let currentQuestion = 0;
+        let answers = new Array(questionsData.length).fill(null);
+        let stream = null;
+        let timerInterval = null;
+        let timeLeft = EXAM_DURATION;
+        let isExamActive = false;
+        
+        // Anti-Cheat state
+        let warningCount = 0;
+        let audioCtx = null;
+        let oscillator = null;
+        let gainNode = null;
+        let isSirenPlaying = false;
+        let lastEventTime = 0;
+
+        // === 1. LOGIN LOGIC ===
+        function handleLogin() {
+            const name = document.getElementById('input-name').value.trim();
+            const cls = document.getElementById('input-class').value;
+            const token = document.getElementById('input-token').value;
+
+            if (!name) return alert("Nama Lengkap wajib diisi!");
+            if (!cls) return alert("Pilih Kelas Anda!");
+            if (token !== VALID_TOKEN) return alert("Token tidak valid!");
+
+            studentInfo = { name, class: cls };
+            
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('prep-screen').classList.remove('hidden');
+            document.getElementById('prep-screen').classList.add('flex');
+            
+            initCameraPrep();
+        }
+
+        // === 2. PREP & CAMERA LOGIC ===
+        async function initCameraPrep() {
+            const videoElement = document.getElementById('prep-video');
+            const statusElement = document.getElementById('cam-status');
+            const btnStart = document.getElementById('btn-start');
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                videoElement.srcObject = stream;
+                videoElement.classList.remove('hidden');
+                statusElement.classList.add('hidden');
+                
+                btnStart.innerText = "Mulai Ujian";
+                btnStart.classList.replace('bg-gray-400', 'bg-blue-600');
+                btnStart.classList.add('hover:bg-blue-700');
+                btnStart.disabled = false;
+            } catch (err) {
+                statusElement.innerText = "Izin Kamera & Mikrofon ditolak! Ujian tidak bisa dilanjutkan.";
+                statusElement.classList.add('text-red-500');
+            }
+        }
+
+        async function startExam() {
+            // Initiate Web Audio Context on User Gesture
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            }
+
+            // Attempt Fullscreen
+            try {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    await document.documentElement.webkitRequestFullscreen();
+                }
+            } catch (e) {
+                console.warn("Fullscreen promise rejected:", e);
+                // Continue exam regardless
+            }
+
+            document.getElementById('prep-screen').classList.remove('flex');
+            document.getElementById('prep-screen').classList.add('hidden');
+            document.getElementById('exam-screen').style.display = 'flex';
+            
+            document.getElementById('display-name').innerText = studentInfo.name;
+            document.getElementById('display-class').innerText = studentInfo.class;
+
+            // Transfer video stream
+            const examVideo = document.getElementById('exam-video');
+            examVideo.srcObject = stream;
+            examVideo.play();
+
+            isExamActive = true;
+            setupExam();
+            startTimer();
+            setupAntiCheat();
+        }
+
+        // === 3. EXAM UI LOGIC ===
+        function setupExam() {
+            renderQuestionList();
+            showQuestion(0);
+        }
+
+        function showQuestion(index) {
+            currentQuestion = index;
+            const q = questionsData[index];
+            
+            document.getElementById('q-number').innerText = index + 1;
+            document.getElementById('q-text').innerText = q.text;
+            
+            const optionsContainer = document.getElementById('q-options');
+            optionsContainer.innerHTML = '';
+            
+            const labels = ['A', 'B', 'C', 'D'];
+            q.options.forEach((opt, idx) => {
+                const isChecked = answers[index] === idx ? 'checked' : '';
+                optionsContainer.innerHTML += `
+                    <label class="option-label">
+                        <input type="radio" name="option" value="${idx}" onchange="saveAnswer(${idx})" ${isChecked}>
+                        <span class="font-bold mr-2">${labels[idx]}.</span>
+                        <span>${opt}</span>
+                    </label>
+                `;
+            });
+
+            // Update Navigation Buttons
+            document.getElementById('btn-prev').disabled = index === 0;
+            if (index === questionsData.length - 1) {
+                document.getElementById('btn-next').classList.add('hidden');
+                document.getElementById('btn-submit').classList.remove('hidden');
+            } else {
+                document.getElementById('btn-next').classList.remove('hidden');
+                document.getElementById('btn-submit').classList.add('hidden');
+            }
+
+            updateQuestionGridStatus();
+        }
+
+        function saveAnswer(idx) {
+            answers[currentQuestion] = idx;
+            updateQuestionGridStatus();
+        }
+
+        function prevQuestion() { if (currentQuestion > 0) showQuestion(currentQuestion - 1); }
+        function nextQuestion() { if (currentQuestion < questionsData.length - 1) showQuestion(currentQuestion + 1); }
+
+        function toggleQuestionModal() {
+            const modal = document.getElementById('q-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function renderQuestionList() {
+            const grid = document.getElementById('q-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < questionsData.length; i++) {
+                grid.innerHTML += `<button id="q-btn-${i}" onclick="goToQuestion(${i})" class="w-10 h-10 flex items-center justify-center rounded border font-semibold transition text-sm">${i + 1}</button>`;
+            }
+        }
+
+        function goToQuestion(idx) {
+            showQuestion(idx);
+            toggleQuestionModal();
+        }
+
+        function updateQuestionGridStatus() {
+            for (let i = 0; i < questionsData.length; i++) {
+                const btn = document.getElementById(`q-btn-${i}`);
+                if (!btn) continue;
+                
+                btn.className = "w-full aspect-square flex items-center justify-center rounded border font-semibold transition text-sm ";
+                
+                if (i === currentQuestion) {
+                    btn.className += "bg-blue-500 text-white border-blue-600"; // Active
+                } else if (answers[i] !== null) {
+                    btn.className += "bg-green-500 text-white border-green-600"; // Answered
+                } else {
+                    btn.className += "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"; // Unanswered
+                }
+            }
+        }
+
+        function startTimer() {
+            const display = document.getElementById('timer-display');
+            timerInterval = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    autoSubmit("Waktu Habis");
+                    return;
+                }
+                timeLeft--;
+                const min = Math.floor(timeLeft / 60);
+                const sec = timeLeft % 60;
+                display.innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // === 4. ANTI-CHEAT LOGIC ===
+        function setupAntiCheat() {
+            // Block keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (!isExamActive) return;
+                const blockedKeys = ["F12", "F11"];
+                if (blockedKeys.includes(e.key) || 
+                   (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key)) ||
+                   (e.ctrlKey && ['U', 'C', 'V', 'X', 'P'].includes(e.key))) {
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('copy', (e) => { if(isExamActive) e.preventDefault(); });
+            document.addEventListener('cut', (e) => { if(isExamActive) e.preventDefault(); });
+            document.addEventListener('paste', (e) => { if(isExamActive) e.preventDefault(); });
+
+            // Visibility & Blur detector with Debounce
+            const handleCheatEvent = () => {
+                if (!isExamActive) return;
+                const now = Date.now();
+                if (now - lastEventTime < 2000) return; // Debounce 2 seconds
+                
+                if (document.hidden || !document.hasFocus()) {
+                    lastEventTime = now;
+                    triggerCheatWarning();
+                }
+            };
+
+            const handleFocusEvent = () => {
+                if (!isExamActive) return;
+                stopSiren();
+                document.getElementById('cheat-overlay').style.display = 'none';
+            };
+
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) handleCheatEvent(); else handleFocusEvent();
+            });
+            window.addEventListener("blur", handleCheatEvent);
+            window.addEventListener("focus", handleFocusEvent);
+        }
+
+        function triggerCheatWarning() {
+            warningCount++;
+            document.getElementById('warning-display').innerText = `Peringatan: ${warningCount}/3`;
+            document.getElementById('overlay-warning-count').innerText = warningCount;
+            document.getElementById('cheat-overlay').style.display = 'flex';
+            
+            playSiren();
+
+            if (warningCount >= MAX_WARNINGS) {
+                setTimeout(() => {
+                    autoSubmit("Diskualifikasi (Curang)");
+                }, 1500);
+            }
+        }
+
+        function playSiren() {
+            if (isSirenPlaying) return;
+            isSirenPlaying = true;
+            try {
+                if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                oscillator = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+                
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.value = 800; // Start freq
+                
+                // Modulate frequency to sound like siren
+                setInterval(() => {
+                    if(isSirenPlaying && oscillator) {
+                        oscillator.frequency.value = oscillator.frequency.value === 800 ? 1200 : 800;
+                    }
+                }, 400);
+
+                gainNode.gain.value = 0.5;
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+            } catch (e) { console.error("Audio error", e); }
+        }
+
+        function stopSiren() {
+            isSirenPlaying = false;
+            if (oscillator) {
+                try { oscillator.stop(); oscillator.disconnect(); } catch(e){}
+                oscillator = null;
+            }
+        }
+
+        // === 5. FLOATING CAMERA DRAG (TOUCH & MOUSE) ===
+        const camEl = document.getElementById('floating-cam');
+        let isDragging = false;
+        let startX, startY, initialX, initialY;
+
+        camEl.addEventListener('mousedown', dragStart);
+        camEl.addEventListener('touchstart', dragStart, {passive: false});
+
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('touchmove', dragMove, {passive: false});
+
+        document.addEventListener('mouseup', dragEnd);
+        document.addEventListener('touchend', dragEnd);
+
+        function dragStart(e) {
+            if (!isExamActive) return;
+            const event = e.type.includes('mouse') ? e : e.touches[0];
+            isDragging = true;
+            startX = event.clientX;
+            startY = event.clientY;
+            
+            const rect = camEl.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+        }
+
+        function dragMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const event = e.type.includes('mouse') ? e : e.touches[0];
+            
+            const dx = event.clientX - startX;
+            const dy = event.clientY - startY;
+            
+            let newX = initialX + dx;
+            let newY = initialY + dy;
+            
+            // Screen boundaries
+            const maxX = window.innerWidth - camEl.offsetWidth;
+            const maxY = window.innerHeight - camEl.offsetHeight;
+            
+            if (newX < 0) newX = 0;
+            if (newX > maxX) newX = maxX;
+            if (newY < 0) newY = 0;
+            if (newY > maxY) newY = maxY;
+
+            camEl.style.left = `${newX}px`;
+            camEl.style.top = `${newY}px`;
+            camEl.style.right = 'auto'; // Override right from CSS
+        }
+
+        function dragEnd() {
+            isDragging = false;
+        }
+
+        // === 6. SUBMISSION ===
+        function confirmSubmit() {
+            const answered = answers.filter(a => a !== null).length;
+            const unanswered = questionsData.length - answered;
+            
+            document.getElementById('info-answered').innerText = answered;
+            document.getElementById('info-unanswered').innerText = unanswered;
+            document.getElementById('submit-modal').classList.remove('hidden');
+        }
+
+        function closeSubmitModal() {
+            document.getElementById('submit-modal').classList.add('hidden');
+        }
+
+        function autoSubmit(status) {
+            isExamActive = false;
+            stopSiren();
+            processSubmit(status);
+        }
+
+        function processSubmit(forceStatus = null) {
+            isExamActive = false;
+            clearInterval(timerInterval);
+            document.getElementById('submit-modal').classList.add('hidden');
+            document.getElementById('exam-screen').style.display = 'none';
+            document.getElementById('cheat-overlay').style.display = 'none';
+            stopSiren();
+            
+            // Stop Camera
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+
+            // Calculate Score
+            let correct = 0;
+            answers.forEach((ans, idx) => {
+                if (ans === questionsData[idx].key) correct++;
+            });
+            const score = (correct / questionsData.length) * 100;
+            const finalStatus = forceStatus || "Selesai Normal";
+            
+            const payload = {
+                timestamp: new Date().toISOString(),
+                nama: studentInfo.name,
+                kelas: studentInfo.class,
+                skor: score,
+                status: finalStatus,
+                terjawab: answers.filter(a => a !== null).length,
+                jawaban: JSON.stringify(answers)
+            };
+
+            showResultScreen(payload);
+        }
+
+        async function showResultScreen(data) {
+            const rs = document.getElementById('result-screen');
+            rs.classList.remove('hidden');
+            rs.classList.add('flex');
+            
+            document.getElementById('res-name').innerText = data.nama;
+            document.getElementById('res-class').innerText = data.kelas;
+            document.getElementById('res-cond').innerText = data.status;
+
+            // Send to Google Sheets Webhook
+            try {
+                // Ignore errors if URL is dummy. In production, this awaits fetch.
+                if(GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT_WEBHOOK_URL_HERE")) {
+                    console.log("Mock Payload sent to Google Sheets:", data);
+                    await new Promise(r => setTimeout(r, 1500)); // mock delay
+                } else {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+            } catch (err) {
+                console.error("Gagal mengirim data", err);
+            } finally {
+                document.getElementById('result-loading').classList.add('hidden');
+                document.getElementById('result-success').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
